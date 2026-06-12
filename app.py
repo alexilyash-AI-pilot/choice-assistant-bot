@@ -69,6 +69,13 @@ def ask_claude(question: str) -> str:
     return response.content[0].text
 
 
+def respond_async(say, text, thread_ts=None):
+    say_kwargs = {"thread_ts": thread_ts} if thread_ts else {}
+    say(text="Думаю, сейчас отвечу...", **say_kwargs)
+    answer = ask_claude(text)
+    say(text=answer, **say_kwargs)
+
+
 @bolt_app.event("message")
 def handle_dm(event, say):
     if event.get("subtype") or event.get("bot_id"):
@@ -76,7 +83,7 @@ def handle_dm(event, say):
     if event.get("channel_type") == "im":
         text = event.get("text", "").strip()
         if text:
-            threading.Thread(target=lambda: say(ask_claude(text))).start()
+            threading.Thread(target=respond_async, args=(say, text)).start()
 
 
 @bolt_app.event("app_mention")
@@ -87,7 +94,7 @@ def handle_mention(event, say):
     clean = " ".join(w for w in text.split() if not w.startswith("<@")).strip()
     if clean:
         thread_ts = event.get("thread_ts") or event.get("ts")
-        threading.Thread(target=lambda: say(text=ask_claude(clean), thread_ts=thread_ts)).start()
+        threading.Thread(target=respond_async, args=(say, clean, thread_ts)).start()
 
 
 flask_app = Flask(__name__)
