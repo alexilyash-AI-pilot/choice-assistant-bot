@@ -61,7 +61,7 @@ anthropic = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
 def ask_claude(question: str) -> str:
     response = anthropic.messages.create(
-        model="claude-haiku-4-5-20251001",
+        model="claude-haiku-4-5",
         max_tokens=1024,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": question}]
@@ -82,9 +82,12 @@ def thinking_message(text):
 
 def respond_async(say, text, thread_ts=None):
     say_kwargs = {"thread_ts": thread_ts} if thread_ts else {}
-    say(text=thinking_message(text), **say_kwargs)
-    answer = ask_claude(text)
-    say(text=answer, **say_kwargs)
+    try:
+        say(text=thinking_message(text), **say_kwargs)
+        answer = ask_claude(text)
+        say(text=answer, **say_kwargs)
+    except Exception as e:
+        say(text=f"Ошибка: {e}", **say_kwargs)
 
 
 @bolt_app.event("message")
