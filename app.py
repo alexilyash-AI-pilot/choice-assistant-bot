@@ -69,9 +69,20 @@ def ask_claude(question: str) -> str:
     return response.content[0].text
 
 
+def thinking_message(text):
+    # detect language by unicode ranges
+    ua = sum(1 for c in text if 'Ѐ' <= c <= 'ӿ' and c in 'іїєґІЇЄҐ')
+    ru = sum(1 for c in text if 'Ѐ' <= c <= 'ӿ') - ua
+    if ua > 0:
+        return "Думаю, зараз відповім..."
+    if ru > 0:
+        return "Думаю, сейчас отвечу..."
+    return "On it, give me a sec..."
+
+
 def respond_async(say, text, thread_ts=None):
     say_kwargs = {"thread_ts": thread_ts} if thread_ts else {}
-    say(text="Думаю, сейчас отвечу...", **say_kwargs)
+    say(text=thinking_message(text), **say_kwargs)
     answer = ask_claude(text)
     say(text=answer, **say_kwargs)
 
