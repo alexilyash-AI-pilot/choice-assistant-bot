@@ -49,12 +49,22 @@ IF YOU DON'T KNOW:
 """
 
 
+def fuzzy_score(term: str, text: str) -> int:
+    """Exact match + partial prefix match for typo tolerance."""
+    score = text.count(term) * 10
+    # partial match: check if first 5 chars of term appear in text
+    if len(term) >= 4:
+        score += text.count(term[:5]) * 3
+        score += text.count(term[:4]) * 2
+    return score
+
+
 def search_wiki(query: str, top_n: int = 4) -> str:
-    terms = query.lower().split()
+    terms = [t for t in query.lower().split() if len(t) > 2]
     results = []
     for key, content in WIKI_DOCS.items():
         text = (key + " " + content).lower()
-        score = sum(text.count(t) for t in terms)
+        score = sum(fuzzy_score(t, text) for t in terms)
         if score > 0:
             results.append((score, key, content))
     results.sort(reverse=True)
