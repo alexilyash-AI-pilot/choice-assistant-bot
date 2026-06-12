@@ -9,12 +9,11 @@ from anthropic import Anthropic
 WIKI_DIR = Path(__file__).parent / "wiki"
 
 def load_wiki():
-    parts = []
+    docs = {}
     for md_file in sorted(WIKI_DIR.rglob("*.md")):
         key = str(md_file.relative_to(WIKI_DIR)).replace(".md", "")
-        text = md_file.read_text(encoding="utf-8")
-        parts.append(f"=== {key} ===\n{text}")
-    return "\n\n".join(parts)
+        docs[key] = md_file.read_text(encoding="utf-8")
+    return docs
 
 WIKI_DOCS = load_wiki()
 
