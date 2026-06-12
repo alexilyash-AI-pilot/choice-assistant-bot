@@ -1,4 +1,5 @@
 import os
+import threading
 from pathlib import Path
 from slack_bolt import App
 from slack_bolt.adapter.flask import SlackRequestHandler
@@ -69,18 +70,23 @@ def ask_claude(question: str) -> str:
 
 @bolt_app.event("message")
 def handle_dm(event, say):
-    if event.get("channel_type") == "im" and not event.get("bot_id"):
+    if event.get("subtype") or event.get("bot_id"):
+        return
+    if event.get("channel_type") == "im":
         text = event.get("text", "").strip()
         if text:
-            say(ask_claude(text))
+            threading.Thread(target=lambda: say(ask_claude(text))).start()
 
 
 @bolt_app.event("app_mention")
 def handle_mention(event, say):
+    if event.get("subtype") or event.get("bot_id"):
+        return
     text = event.get("text", "")
     clean = " ".join(w for w in text.split() if not w.startswith("<@")).strip()
     if clean:
-        say(ask_claude(clean))
+        thread_ts = event.get("thread_ts") or event.get("ts")
+        threading.Thread(target=lambda: say(text=ask_claude(clean), thread_ts=thread_ts)).start()
 
 
 flask_app = Flask(__name__)
