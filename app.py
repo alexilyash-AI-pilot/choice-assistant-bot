@@ -16,9 +16,9 @@ def load_wiki():
         parts.append(f"=== {key} ===\n{text}")
     return "\n\n".join(parts)
 
-WIKI_CONTENT = load_wiki()
+WIKI_DOCS = load_wiki()
 
-SYSTEM_PROMPT = f"""You are ChoiAsistent — an AI assistant for the Choice restaurant platform (choiceqr.com).
+SYSTEM_BASE = """You are ChoiAsistent — an AI assistant for the Choice restaurant platform (choiceqr.com).
 You help the Choice team with questions about POS integrations, marketplaces, platform features, and support.
 
 PERSONALITY:
@@ -30,7 +30,7 @@ PERSONALITY:
 - No emojis or icons — ever
 
 LANGUAGE:
-- CRITICAL: Always reply in the exact same language the user wrote in. If they write in Ukrainian — answer in Ukrainian. Russian — Russian. English — English. Never switch languages.
+- CRITICAL: Always reply in the exact same language the user wrote in. Ukrainian — Ukrainian. Russian — Russian. English — English. Never switch languages.
 - Match the tone: if someone is casual, be casual; if formal, be formal
 
 ANSWER FORMAT:
@@ -40,16 +40,41 @@ ANSWER FORMAT:
 - Max 5-6 sentences for simple questions; longer only when truly needed
 
 IF ASKED FOR SOURCE FILES:
-- Tell the user the relevant file path from the wiki, e.g. wiki/support/pos/poster.md
-- Explain they can find the full file in the GitHub repo: https://github.com/alexilyash-AI-pilot/choice-assistant-bot
+- Tell the user the relevant file path, e.g. wiki/support/pos/poster.md
+- GitHub repo: https://github.com/alexilyash-AI-pilot/choice-assistant-bot
 
 IF YOU DON'T KNOW:
 - Say so directly — don't make things up
-- Suggest who to ask (e.g. "check with the integrations team")
-
-KNOWLEDGE BASE:
-{WIKI_CONTENT}
 """
+
+
+def search_wiki(query: str, top_n: int = 4) -> str:
+    terms = query.lower().split()
+    results = []
+    for key, content in WIKI_DOCS.items():
+        text = (key + " " + content).lower()
+        score = sum(text.count(t) for t in terms)
+        if score > 0:
+            results.append((score, key, content))
+    results.sort(reverse=True)
+    top = results[:top_n]
+    if not top:
+        # fallback: return overview files
+        fallback = [(k, v) for k, v in WIKI_DOCS.items() if "overview" in k or "faq" in k or "pricing" in k]
+        top = [(0, k, v) for k, v in fallback[:top_n]]
+    return "\n\n".join(f"=== {k} ===\n{c}" for _, k, c in top)
+
+
+def ask_claude(question: str) -> str:
+    context = search_wiki(question)
+    system = SYSTEM_BASE + f"\n\nRELEVANT KNOWLEDGE BASE:\n{context}"
+    response = anthropic.messages.create(
+        model="claude-haiku-4-5",
+        max_tokens=1024,
+        system=system,
+        messages=[{"role": "user", "content": question}]
+    )
+    return response.content[0].text
 
 bolt_app = App(
     token=os.environ["SLACK_BOT_TOKEN"],
@@ -59,14 +84,6 @@ bolt_app = App(
 anthropic = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
 
-def ask_claude(question: str) -> str:
-    response = anthropic.messages.create(
-        model="claude-haiku-4-5",
-        max_tokens=1024,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": question}]
-    )
-    return response.content[0].text
 
 
 def thinking_message(text):
